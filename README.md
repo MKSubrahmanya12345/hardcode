@@ -70,3 +70,9 @@ This document summarizes what was added or changed in this mixed local version c
 ## Intent of this branch
 
 The goal of this branch is to preserve all local feature work while staying compatible with the original upstream main branch content, so both sets of changes exist together without feature loss.
+
+## Latest sync update
+
+- Synced with latest `mkhardcode/main` and merged into local mixed branch.
+- UI was preserved intentionally (workspace/editor layout and interactions remain on local version).
+- Branch publish target: `mkhardcode/alden`.
