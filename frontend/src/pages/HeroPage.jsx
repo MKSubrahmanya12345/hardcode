@@ -148,15 +148,14 @@ export default function HeroPage() {
             </div>
             
             <h1 className={`mt-8 text-6xl font-black tracking-tight sm:text-8xl leading-[0.9] ${isDark ? "text-white" : "text-slate-900"}`}>
-              Software that <br />
+              Your AI Companion <br />
               <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                feels like silk.
+                for Hardware
               </span>
             </h1>
 
             <p className={`mt-8 max-w-xl text-xl leading-relaxed ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-              HardCode is a high-performance project workspace designed for teams who value clarity over complexity. 
-              No clutter, no bloat—just pure execution.
+              Go from idea to working prototype in minutes, not weekends. Just tell it what you want.
             </p>
 
             <div className="mt-12 flex flex-wrap gap-5">

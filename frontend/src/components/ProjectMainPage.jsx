@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useThemeStore } from "../store/useThemeStore";
+import { useAuthStore } from "../store/useAuthStore";
 import axios from "axios";
 import toast from "react-hot-toast";
 
@@ -13,6 +14,7 @@ export default function ProjectMainPage() {
   const [isIdeationFinalized, setIsIdeationFinalized] = useState(false);
   const [projectSnapshot, setProjectSnapshot] = useState(null);
   const { theme, toggleTheme } = useThemeStore();
+  const { logout } = useAuthStore();
   const isDark = theme === "dark";
 
   const navigate = useNavigate();
@@ -87,6 +89,11 @@ export default function ProjectMainPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/auth");
+  };
+
   return (
     <div className={`min-h-screen px-6 py-8 ${isDark ? "bg-[#212121] text-[#e5e5e5]" : "bg-[#f5f5f5] text-[#111]"}`}>
       
@@ -130,6 +137,17 @@ export default function ProjectMainPage() {
               className={`rounded-lg px-4 py-2 text-xs font-semibold border ${isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5"}`}
             >
               {isDark ? "Light" : "Dark"}
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className={`rounded-lg px-4 py-2 text-xs font-semibold border transition ${
+                isDark
+                  ? "border-white/10 text-red-300 hover:bg-white/10"
+                  : "border-black/10 text-red-600 hover:bg-black/5"
+              }`}
+            >
+              Logout
             </button>
           </div>
         </div>

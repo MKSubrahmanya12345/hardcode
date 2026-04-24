@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useThemeStore } from "../store/useThemeStore";
+import { useAuthStore } from "../store/useAuthStore";
 import DesignChat from "../components/DesignChat";
 
 const defaultWokwiUrl = "";
@@ -24,6 +25,7 @@ export default function DesignPage() {
   const draggingRef = useRef(false);
 
   const { theme, toggleTheme } = useThemeStore();
+  const { logout } = useAuthStore();
   const isDark = theme === "dark";
 
   const [project, setProject] = useState(() => getInitialProject(location.state));
@@ -318,6 +320,11 @@ export default function DesignPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/auth");
+  };
+
   return (
     <div className={`h-screen overflow-hidden ${isDark ? "bg-[#212121] text-[#e5e5e5]" : "bg-[#f5f5f5] text-[#111]"}`}>
       <div className="mx-auto flex h-full w-full max-w-screen-2xl flex-col gap-3 px-4 py-4 lg:px-5">
@@ -360,6 +367,17 @@ export default function DesignPage() {
               className={`border px-4 py-2 text-xs font-semibold transition ${isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5"}`}
             >
               {isDark ? "Light" : "Dark"}
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className={`border px-4 py-2 text-xs font-semibold transition ${
+                isDark
+                  ? "border-white/10 text-red-300 hover:bg-white/10"
+                  : "border-black/10 text-red-600 hover:bg-black/5"
+              }`}
+            >
+              Logout
             </button>
           </div>
         </div>
