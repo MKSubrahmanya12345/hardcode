@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import Project from "../models/project.model.js";
-import { buildGenerationProfileFromMeta, processInput } from "../services/ai.services.js";
+import { processInput } from "../services/ai.services.js";
 
 const isIdeaFinalized = (project) => {
   return Boolean(project?.ideaState?.summary?.trim()) && (project?.ideaState?.unknowns?.length ?? 0) === 0;
@@ -62,32 +62,6 @@ export const createIdeationProject = async (req, res) => {
 
     project.meta.stage = isIdeaFinalized(project) ? "components" : "idea";
 
-    if (ai.detectedMeta) {
-      project.meta = project.meta || {};
-
-      if (
-        ai.detectedMeta.board
-        && (project.meta.board === null || project.meta.board !== ai.detectedMeta.board)
-      ) {
-        project.meta.board = ai.detectedMeta.board;
-      }
-
-      if (typeof ai.detectedMeta.powerSource === "string") {
-        project.meta.powerSource = ai.detectedMeta.powerSource;
-      }
-
-      if (typeof ai.detectedMeta.language === "string") {
-        project.meta.language = ai.detectedMeta.language;
-      }
-
-      project.meta.componentCount = Number.isFinite(ai.detectedMeta.componentCount)
-        ? ai.detectedMeta.componentCount
-        : 0;
-      project.meta.detectedAt = ai.detectedMeta.detectedAt || new Date();
-    }
-
-    project.generationProfile = buildGenerationProfileFromMeta(project.meta || {});
-
     project.messages.push({
       role: "ai",
       content: ai.assistantReply
@@ -100,8 +74,7 @@ export const createIdeationProject = async (req, res) => {
       reply: ai.assistantReply,
       question: ai.question,
       ideaState: project.ideaState,
-      ideationFinalized: isIdeaFinalized(project),
-      generationProfile: project.generationProfile
+      ideationFinalized: isIdeaFinalized(project)
     });
   } catch (err) {
     console.error("IDEATION ERROR:", err);
@@ -146,32 +119,6 @@ export const chatIdeationProject = async (req, res) => {
 
     project.meta.stage = isIdeaFinalized(project) ? "components" : "idea";
 
-    if (ai.detectedMeta) {
-      project.meta = project.meta || {};
-
-      if (
-        ai.detectedMeta.board
-        && (project.meta.board === null || project.meta.board !== ai.detectedMeta.board)
-      ) {
-        project.meta.board = ai.detectedMeta.board;
-      }
-
-      if (typeof ai.detectedMeta.powerSource === "string") {
-        project.meta.powerSource = ai.detectedMeta.powerSource;
-      }
-
-      if (typeof ai.detectedMeta.language === "string") {
-        project.meta.language = ai.detectedMeta.language;
-      }
-
-      project.meta.componentCount = Number.isFinite(ai.detectedMeta.componentCount)
-        ? ai.detectedMeta.componentCount
-        : 0;
-      project.meta.detectedAt = ai.detectedMeta.detectedAt || new Date();
-    }
-
-    project.generationProfile = buildGenerationProfileFromMeta(project.meta || {});
-
     project.messages.push({
       role: "ai",
       content: ai.assistantReply
@@ -183,9 +130,7 @@ export const chatIdeationProject = async (req, res) => {
       reply: ai.assistantReply,
       question: ai.question,
       ideaState: project.ideaState,
-      ideationFinalized: isIdeaFinalized(project),
-      meta: project.meta,
-      generationProfile: project.generationProfile
+      ideationFinalized: isIdeaFinalized(project)
     });
   } catch (err) {
     console.error("IDEATION ERROR:", err);

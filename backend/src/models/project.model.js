@@ -74,41 +74,6 @@ const designStateSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const projectAiMessageSchema = new mongoose.Schema({
-  role: {
-    type: String,
-    enum: ["user", "ai"],
-    required: true
-  },
-  content: {
-    type: String,
-    required: true
-  }
-}, { _id: false });
-
-const projectAiStateSchema = new mongoose.Schema({
-  summary: {
-    type: String,
-    default: ""
-  },
-  hardwarePath: {
-    type: String,
-    default: ""
-  },
-  files: {
-    type: [String],
-    default: []
-  },
-  notes: {
-    type: [String],
-    default: []
-  },
-  lastContextAt: {
-    type: Date,
-    default: null
-  }
-}, { _id: false });
-
 const wokwiEvidenceResultSchema = new mongoose.Schema({
   ok: {
     type: Boolean,
@@ -244,22 +209,6 @@ const projectSchema = new mongoose.Schema({
     })
   },
 
-  projectAiMessages: {
-    type: [projectAiMessageSchema],
-    default: []
-  },
-
-  projectAiState: {
-    type: projectAiStateSchema,
-    default: () => ({
-      summary: "",
-      hardwarePath: "",
-      files: [],
-      notes: [],
-      lastContextAt: null
-    })
-  },
-
   wokwiEvidence: {
     type: wokwiEvidenceSchema,
     default: () => ({
@@ -276,71 +225,6 @@ const projectSchema = new mongoose.Schema({
       type: String,
       enum: ["idea", "components", "design", "build"],
       default: "idea"
-    },
-    board: {
-      type: String,
-      enum: ["arduino-uno", "arduino-nano", "esp32-devkit-v1", "raspberry-pi-pico", "attiny85", null],
-      default: null
-    },
-    powerSource: {
-      type: String,
-      enum: ["usb", "lipo", "9v", "aa-batteries", "unknown", null],
-      default: null
-    },
-    language: {
-      type: String,
-      enum: ["cpp", "micropython"],
-      default: "cpp"
-    },
-    componentCount: {
-      type: Number,
-      default: 0
-    },
-    detectedAt: {
-      type: Date,
-      default: null
-    }
-  },
-
-  generationProfile: {
-    board: {
-      type: String,
-      enum: ["arduino-uno", "arduino-nano", "esp32-devkit-v1", "raspberry-pi-pico", "attiny85", null],
-      default: null
-    },
-    boardPartType: {
-      type: String,
-      default: "wokwi-arduino-uno"
-    },
-    powerSource: {
-      type: String,
-      enum: ["usb", "lipo", "9v", "aa-batteries", "unknown", null],
-      default: null
-    },
-    language: {
-      type: String,
-      enum: ["cpp", "micropython"],
-      default: "cpp"
-    },
-    firmwareTarget: {
-      type: String,
-      default: "arduino-cpp-sketch-ino"
-    },
-    simulationTarget: {
-      type: String,
-      default: "wokwi-json-ino"
-    },
-    runtimeHints: {
-      type: [String],
-      default: []
-    },
-    profileVersion: {
-      type: Number,
-      default: 1
-    },
-    updatedAt: {
-      type: Date,
-      default: null
     }
   }
 

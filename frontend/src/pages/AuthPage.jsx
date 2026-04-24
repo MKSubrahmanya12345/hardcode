@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useAuthStore } from "../store/useAuthStore";
 
 export default function AuthPage() {
-  const { login, signup } = useAuthStore();
+  const { login, signup, loginWithGoogle, isLoggingIn } = useAuthStore();
 
   const [isLogin, setIsLogin] = useState(true);
   const [theme, setTheme] = useState("dark");
@@ -15,14 +15,7 @@ export default function AuthPage() {
     fullName: ""
   });
 
-  const canSubmit = isLogin
-    ? Boolean(data.email.trim() && data.password)
-    : Boolean(data.fullName.trim() && data.email.trim() && data.password);
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!canSubmit) return;
-
+  const handleSubmit = () => {
     if (isLogin) login(data);
     else signup(data);
   };
@@ -96,80 +89,95 @@ export default function AuthPage() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Inputs */}
-          <div className="mt-5 space-y-3">
-            {!isLogin && (
-              <div className="space-y-1">
-                <label className={`ml-1 text-xs ${
-                  isDark ? "text-[#888]" : "text-[#666]"
-                }`}>
-                  Full name
-                </label>
-                <input
-                  placeholder="Your name"
-                  value={data.fullName}
-                  className={`w-full rounded-lg px-3 py-2.5 text-sm outline-none border ${
-                    isDark
-                      ? "bg-[#1f1f1f] border-white/10 focus:bg-[#262626]"
-                      : "bg-white border-black/10 focus:bg-[#fafafa]"
-                  }`}
-                  onChange={e => setData({ ...data, fullName: e.target.value })}
-                />
-              </div>
-            )}
-
+        {/* Inputs */}
+        <div className="mt-5 space-y-3">
+          {!isLogin && (
             <div className="space-y-1">
               <label className={`ml-1 text-xs ${
                 isDark ? "text-[#888]" : "text-[#666]"
               }`}>
-                Email
+                Full name
               </label>
               <input
-                placeholder="you@example.com"
-                value={data.email}
+                placeholder="Your name"
                 className={`w-full rounded-lg px-3 py-2.5 text-sm outline-none border ${
                   isDark
                     ? "bg-[#1f1f1f] border-white/10 focus:bg-[#262626]"
                     : "bg-white border-black/10 focus:bg-[#fafafa]"
                 }`}
-                onChange={e => setData({ ...data, email: e.target.value })}
+                onChange={e => setData({ ...data, fullName: e.target.value })}
               />
             </div>
+          )}
 
-            <div className="space-y-1">
-              <label className={`ml-1 text-xs ${
-                isDark ? "text-[#888]" : "text-[#666]"
-              }`}>
-                Password
-              </label>
-              <input
-                placeholder="••••••••"
-                type="password"
-                value={data.password}
-                className={`w-full rounded-lg px-3 py-2.5 text-sm outline-none border ${
-                  isDark
-                    ? "bg-[#1f1f1f] border-white/10 focus:bg-[#262626]"
-                    : "bg-white border-black/10 focus:bg-[#fafafa]"
-                }`}
-                onChange={e => setData({ ...data, password: e.target.value })}
-              />
-            </div>
+          <div className="space-y-1">
+            <label className={`ml-1 text-xs ${
+              isDark ? "text-[#888]" : "text-[#666]"
+            }`}>
+              Email
+            </label>
+            <input
+              placeholder="you@example.com"
+              className={`w-full rounded-lg px-3 py-2.5 text-sm outline-none border ${
+                isDark
+                  ? "bg-[#1f1f1f] border-white/10 focus:bg-[#262626]"
+                  : "bg-white border-black/10 focus:bg-[#fafafa]"
+              }`}
+              onChange={e => setData({ ...data, email: e.target.value })}
+            />
           </div>
 
-          {/* CTA */}
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className={`mt-6 w-full rounded-lg py-2.5 text-sm font-semibold transition ${
-              isDark
-                ? "bg-[#3a3a3a] hover:bg-[#4a4a4a]"
-                : "bg-black text-white hover:bg-[#222]"
-            } ${!canSubmit ? "opacity-60 cursor-not-allowed" : ""}`}
-          >
-            {isLogin ? "Login" : "Create account"}
-          </button>
-        </form>
+          <div className="space-y-1">
+            <label className={`ml-1 text-xs ${
+              isDark ? "text-[#888]" : "text-[#666]"
+            }`}>
+              Password
+            </label>
+            <input
+              placeholder="••••••••"
+              type="password"
+              className={`w-full rounded-lg px-3 py-2.5 text-sm outline-none border ${
+                isDark
+                  ? "bg-[#1f1f1f] border-white/10 focus:bg-[#262626]"
+                  : "bg-white border-black/10 focus:bg-[#fafafa]"
+              }`}
+              onChange={e => setData({ ...data, password: e.target.value })}
+            />
+          </div>
+        </div>
+
+        {/* CTA */}
+        <button
+          onClick={handleSubmit}
+          className={`mt-6 w-full rounded-lg py-2.5 text-sm font-semibold transition ${
+            isDark
+              ? "bg-[#3a3a3a] hover:bg-[#4a4a4a]"
+              : "bg-black text-white hover:bg-[#222]"
+          }`}
+        >
+          {isLogin ? "Login" : "Create account"}
+        </button>
+
+        <div className="mt-4 flex items-center gap-3">
+          <div className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+          <span className={`text-[11px] uppercase tracking-[0.16em] ${isDark ? "text-[#777]" : "text-[#888]"}`}>
+            Or
+          </span>
+          <div className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+        </div>
+
+        <button
+          type="button"
+          onClick={loginWithGoogle}
+          disabled={isLoggingIn}
+          className={`mt-4 w-full rounded-lg border py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            isDark
+              ? "border-white/10 bg-[#1f1f1f] hover:bg-[#262626]"
+              : "border-black/10 bg-white hover:bg-[#f8f8f8]"
+          }`}
+        >
+          Continue with Google
+        </button>
 
         <p className={`mt-4 text-center text-xs ${
           isDark ? "text-[#888]" : "text-[#666]"

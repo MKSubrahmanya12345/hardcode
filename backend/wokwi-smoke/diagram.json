@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "author": "HardCode CI",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "id": "uno",
+      "type": "wokwi-arduino-uno",
+      "left": 0,
+      "top": 0,
+      "attrs": {}
+    }
+  ],
+  "connections": []
+}
