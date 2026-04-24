@@ -8,41 +8,12 @@ const debugAuth = (...args) => {
   }
 };
 
-const verifyFirebaseIdToken = async (idToken) => {
-  const apiKey = process.env.FIREBASE_API_KEY?.trim();
-
-  if (!apiKey) {
-    const err = new Error("Missing FIREBASE_API_KEY in backend/.env");
-    err.statusCode = 500;
-    throw err;
-  }
-
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
-    }
-  );
-
-  const payload = await response.json();
-
-  if (!response.ok || !Array.isArray(payload?.users) || payload.users.length === 0) {
-    const message = payload?.error?.message || "Invalid Firebase token";
-    const err = new Error(message);
-    err.statusCode = 401;
-    throw err;
-  }
-
-  return payload.users[0];
-};
-
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
-
   try {
-    if (!fullName || !email || !password) {
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!fullName || !normalizedEmail || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -50,7 +21,6 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
     if (user) return res.status(400).json({ message: "Email already exists" });
@@ -64,16 +34,20 @@ export const signup = async (req, res) => {
       password: hashedPassword,
     });
 
-    await newUser.save();
-    generateToken(newUser._id, res);
-    debugAuth("signup success", { userId: newUser._id.toString(), email: newUser.email });
+    if (newUser) {
+      await newUser.save();
+      generateToken(newUser._id, res);
+      debugAuth("signup success", { userId: newUser._id.toString(), email: newUser.email });
 
-    res.status(201).json({
-      _id: newUser._id,
-      fullName: newUser.fullName,
-      email: newUser.email,
-      profilePic: newUser.profilePic,
-    });
+      res.status(201).json({
+        _id: newUser._id,
+        fullName: newUser.fullName,
+        email: newUser.email,
+        profilePic: newUser.profilePic,
+      });
+    } else {
+      res.status(400).json({ message: "Invalid user data" });
+    }
   } catch (error) {
     console.log("Error in signup controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -82,16 +56,33 @@ export const signup = async (req, res) => {
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    let isPasswordCorrect = false;
+
+    // Support legacy records that may still store plaintext passwords.
+    if (typeof user.password === "string" && user.password.startsWith("$2")) {
+      isPasswordCorrect = await bcrypt.compare(password, user.password);
+    } else {
+      isPasswordCorrect = password === user.password;
+      if (isPasswordCorrect) {
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+        await user.save();
+      }
+    }
+
     if (!isPasswordCorrect) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -107,69 +98,6 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.log("Error in login controller", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-export const firebaseAuth = async (req, res) => {
-  const { idToken, fullName } = req.body;
-
-  try {
-    if (!idToken?.trim()) {
-      return res.status(400).json({ message: "idToken is required" });
-    }
-
-    const firebaseUser = await verifyFirebaseIdToken(idToken.trim());
-    const firebaseUid = String(firebaseUser.localId || "").trim();
-    const email = String(firebaseUser.email || "").trim().toLowerCase();
-    const fallbackName = email.includes("@") ? email.split("@")[0] : "User";
-    const resolvedFullName = String(fullName || firebaseUser.displayName || fallbackName).trim();
-
-    if (!firebaseUid || !email) {
-      return res.status(400).json({ message: "Incomplete Firebase user profile" });
-    }
-
-    let user = await User.findOne({ $or: [{ firebaseUid }, { email }] });
-
-    if (!user) {
-      user = await User.create({
-        firebaseUid,
-        email,
-        fullName: resolvedFullName,
-        password: "",
-      });
-    } else {
-      user.firebaseUid = firebaseUid;
-      user.email = email;
-      user.fullName = resolvedFullName;
-      await user.save();
-    }
-
-    generateToken(user._id, res);
-    debugAuth("firebase auth success", { userId: user._id.toString(), email: user.email });
-
-    res.status(200).json({
-      _id: user._id,
-      firebaseUid: user.firebaseUid,
-      fullName: user.fullName,
-      email: user.email,
-      profilePic: user.profilePic,
-    });
-  } catch (error) {
-    if (error.statusCode === 500) {
-      console.log("Error in firebaseAuth controller", error.message);
-      return res.status(500).json({ message: error.message });
-    }
-
-    if (error.statusCode === 401) {
-      return res.status(401).json({ message: "Invalid Firebase token" });
-    }
-
-    if (error.message?.includes("INVALID_ID_TOKEN") || error.message?.includes("TOKEN_EXPIRED")) {
-      return res.status(401).json({ message: "Invalid Firebase token" });
-    }
-
-    console.log("Error in firebaseAuth controller", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

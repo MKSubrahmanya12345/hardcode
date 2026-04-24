@@ -5,9 +5,11 @@ import { useThemeStore } from "../store/useThemeStore";
 import { useAuthStore } from "../store/useAuthStore";
 import axios from "axios";
 import toast from "react-hot-toast";
+
 import ProjectChat from "../components/ProjectChat";
 import ComponentsChat from "../components/ComponentsChat";
 import WokwiProofLab from "../components/WokwiProofLab";
+
 export default function ProjectMainPage() {
   const [tab, setTab] = useState("ideation");
   const [isIdeationFinalized, setIsIdeationFinalized] = useState(false);
@@ -95,15 +97,11 @@ export default function ProjectMainPage() {
 
   return (
     <div className={`min-h-screen px-6 py-8 ${isDark ? "bg-[#212121] text-[#e5e5e5]" : "bg-[#f5f5f5] text-[#111]"}`}>
-      
-      {/* Top */}
       <div className="mx-auto w-full max-w-7xl">
-
-        {/* Header */}
         <div className={`mb-6 flex items-center justify-between rounded-xl border px-6 py-4 ${isDark ? "bg-[#2a2a2a] border-white/10" : "bg-white border-black/10"}`}>
           <div>
             <button
-              onClick={() => navigate('/home')} // <-- Use navigate for routing
+              onClick={() => navigate("/home")}
               className={`rounded-lg border px-3 py-1 text-xs transition ${isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5"}`}
             >
               ← Back
@@ -214,7 +212,6 @@ export default function ProjectMainPage() {
             </motion.div>
           )}
         </div>
-
       </div>
     </div>
   );

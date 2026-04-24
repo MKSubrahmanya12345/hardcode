@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import PromptInputDynamicGrow from "../components/ui/PromptInputDynamicGrow";
 import TubesCursor from "../components/ui/TubesCursor";
-import CreateProjectModal from "../components/CreateProjectModal";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -18,7 +17,6 @@ export default function HomePage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // 🔥 fetch user projects
   useEffect(() => {
@@ -56,7 +54,6 @@ export default function HomePage() {
         { withCredentials: true }
       );
 
-      setIsCreateModalOpen(false);
       navigate(`/project/${res.data.projectId}`);
     } catch (err) {
       console.error("Create Project Error:", err);
@@ -130,18 +127,6 @@ export default function HomePage() {
           <p className="text-sm font-medium">Projects</p>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              disabled={isCreating}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold border transition ${
-                isDark
-                  ? "border-white/10 hover:bg-white/10"
-                  : "border-black/10 hover:bg-black/5"
-              } ${isCreating ? "opacity-60 cursor-not-allowed" : ""}`}
-            >
-              {isCreating ? "Creating..." : "+ New Project"}
-            </button>
-
             <button
               onClick={handleLogout}
               className={`rounded-lg px-4 py-2 text-xs font-semibold border transition ${
@@ -313,27 +298,9 @@ export default function HomePage() {
           }`}>
             <p className="text-base font-semibold">No projects yet</p>
             <p className="mt-2">Use the chat box above to create your first workspace.</p>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              disabled={isCreating}
-              className={`mt-5 rounded-full px-5 py-2.5 text-xs font-semibold transition ${
-                isDark
-                  ? "bg-white text-[#111] hover:bg-[#e8e8e8]"
-                  : "bg-black text-white hover:bg-[#222]"
-              } ${isCreating ? "opacity-60 cursor-not-allowed" : ""}`}
-            >
-              {isCreating ? "Creating..." : "Create project"}
-            </button>
           </div>
         )}
       </div>
-
-      <CreateProjectModal
-        isOpen={isCreateModalOpen}
-        isSubmitting={isCreating}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateProject}
-      />
     </div>
   );
 }
