@@ -635,11 +635,73 @@ const buildDiagramExport = (diagram) => {
 
 const DiagramPreview = ({ isDark, diagram: incomingDiagram }) => {
   const canvasRef = useRef(null);
+  const stageRef = useRef(null);
   const dragRef = useRef({ nodeId: null, offsetX: 0, offsetY: 0 });
+  const panRef = useRef({ active: false, startX: 0, startY: 0, translateX: 0, translateY: 0 });
   const [hoveredWire, setHoveredWire] = useState(null);
   const [positions, setPositions] = useState({});
+  const [viewport, setViewport] = useState({ scale: 1, translateX: 0, translateY: 0 });
 
   const diagram = incomingDiagram || getDiagramModel();
+
+  const getCanvasSize = () => {
+    const container = canvasRef.current;
+    return {
+      width: container?.clientWidth || 1,
+      height: container?.clientHeight || 1
+    };
+  };
+
+  const getWorldBounds = () => {
+    const boardBox = getNodeBox(diagram.board);
+    const boxes = [boardBox, ...diagram.nodes.map((node) => getNodeBox(node))];
+    const padding = 48;
+
+    const minX = Math.min(...boxes.map((box) => box.x)) - padding;
+    const minY = Math.min(...boxes.map((box) => box.y)) - padding;
+    const maxX = Math.max(...boxes.map((box) => box.x + box.w)) + padding;
+    const maxY = Math.max(...boxes.map((box) => box.y + box.h)) + padding;
+
+    return {
+      x: minX,
+      y: minY,
+      width: Math.max(maxX - minX, 1),
+      height: Math.max(maxY - minY, 1)
+    };
+  };
+
+  const zoomTo = (nextScale, focusX = null, focusY = null) => {
+    const container = canvasRef.current;
+    if (!container) return;
+
+    const bounds = container.getBoundingClientRect();
+    const current = viewport;
+    const clampedScale = Math.min(Math.max(nextScale, 0.45), 1.8);
+    const anchorX = focusX ?? bounds.width / 2;
+    const anchorY = focusY ?? bounds.height / 2;
+    const worldX = (anchorX - current.translateX) / current.scale;
+    const worldY = (anchorY - current.translateY) / current.scale;
+
+    setViewport({
+      scale: clampedScale,
+      translateX: anchorX - worldX * clampedScale,
+      translateY: anchorY - worldY * clampedScale
+    });
+  };
+
+  const fitToView = () => {
+    const container = canvasRef.current;
+    if (!container) return;
+
+    const bounds = container.getBoundingClientRect();
+    const world = getWorldBounds();
+    const scale = Math.min(bounds.width / world.width, bounds.height / world.height) * 0.92;
+    const clampedScale = Math.min(Math.max(scale, 0.45), 1.2);
+    const translateX = (bounds.width - world.width * clampedScale) / 2 - world.x * clampedScale;
+    const translateY = (bounds.height - world.height * clampedScale) / 2 - world.y * clampedScale;
+
+    setViewport({ scale: clampedScale, translateX, translateY });
+  };
 
   useEffect(() => {
     const initial = {};
@@ -654,6 +716,15 @@ const DiagramPreview = ({ isDark, diagram: incomingDiagram }) => {
     initial[diagram.board.id] = positions[diagram.board.id] || { x: diagram.board.x, y: diagram.board.y };
 
     setPositions(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagram.signature]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      fitToView();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagram.signature]);
 
@@ -703,26 +774,69 @@ const DiagramPreview = ({ isDark, diagram: incomingDiagram }) => {
   };
 
   const onPointerMove = (event) => {
-    if (!dragRef.current.nodeId || !canvasRef.current) return;
-    const bounds = canvasRef.current.getBoundingClientRect();
-    const width = bounds.width || 1;
-    const height = bounds.height || 1;
-    const nextX = (event.clientX - bounds.left - dragRef.current.offsetX) / width;
-    const nextY = (event.clientY - bounds.top - dragRef.current.offsetY) / height;
+    if (dragRef.current.nodeId && canvasRef.current) {
+      const bounds = canvasRef.current.getBoundingClientRect();
+      const width = bounds.width || 1;
+      const height = bounds.height || 1;
+      const nextX = (event.clientX - bounds.left - viewport.translateX - dragRef.current.offsetX) / (width * viewport.scale);
+      const nextY = (event.clientY - bounds.top - viewport.translateY - dragRef.current.offsetY) / (height * viewport.scale);
 
-    setPositions((prev) => ({
-      ...prev,
-      [dragRef.current.nodeId]: {
-        x: Math.min(Math.max(nextX, 0.02), 0.92),
-        y: Math.min(Math.max(nextY, 0.02), 0.88)
-      }
-    }));
+      setPositions((prev) => ({
+        ...prev,
+        [dragRef.current.nodeId]: {
+          x: Math.min(Math.max(nextX, 0.02), 0.92),
+          y: Math.min(Math.max(nextY, 0.02), 0.88)
+        }
+      }));
+      return;
+    }
+
+    if (panRef.current.active) {
+      const deltaX = event.clientX - panRef.current.startX;
+      const deltaY = event.clientY - panRef.current.startY;
+
+      setViewport((prev) => ({
+        ...prev,
+        translateX: panRef.current.translateX + deltaX,
+        translateY: panRef.current.translateY + deltaY
+      }));
+    }
   };
 
   const onPointerUp = () => {
     dragRef.current.nodeId = null;
+    panRef.current.active = false;
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
+  };
+
+  const onWheel = (event) => {
+    if (!canvasRef.current) return;
+    event.preventDefault();
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const focusX = event.clientX - rect.left;
+    const focusY = event.clientY - rect.top;
+    const delta = event.deltaY < 0 ? 0.12 : -0.12;
+    zoomTo(viewport.scale + delta, focusX, focusY);
+  };
+
+  const startPan = (event) => {
+    const target = event.target;
+    const isNodeDrag = target.closest?.("[data-draggable-node='true']");
+    const isButton = target.closest?.("button");
+
+    if (isNodeDrag || isButton) {
+      return;
+    }
+
+    panRef.current.active = true;
+    panRef.current.startX = event.clientX;
+    panRef.current.startY = event.clientY;
+    panRef.current.translateX = viewport.translateX;
+    panRef.current.translateY = viewport.translateY;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "grab";
   };
 
   useEffect(() => {
@@ -754,6 +868,7 @@ const DiagramPreview = ({ isDark, diagram: incomingDiagram }) => {
     return (
       <div
         key={node.id}
+        data-draggable-node="true"
         className={`absolute select-none overflow-hidden rounded-[24px] border px-5 py-4 shadow-[0_18px_50px_rgba(15,23,42,0.14)] backdrop-blur-[1px] ${panelClass} cursor-grab transition-transform duration-150 active:cursor-grabbing hover:-translate-y-0.5`}
         style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
         onPointerDown={(event) => {
@@ -813,65 +928,86 @@ const DiagramPreview = ({ isDark, diagram: incomingDiagram }) => {
   };
 
   return (
-    <div ref={canvasRef} className={`relative h-full w-full overflow-hidden rounded-[22px] border ${isDark ? "border-white/10 bg-[#0f1116]" : "border-black/10 bg-[#f8fafc]"}`}>
+    <div
+      ref={canvasRef}
+      className={`relative h-full w-full overflow-hidden rounded-[22px] border ${isDark ? "border-white/10 bg-[#0f1116]" : "border-black/10 bg-[#f8fafc]"}`}
+      onWheel={onWheel}
+      onPointerDown={startPan}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.14),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.12),transparent_26%)]" />
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <pattern id="diagramGrid" width="48" height="48" patternUnits="userSpaceOnUse">
-            <path d="M 48 0 L 0 0 0 48" fill="none" stroke={isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.06)"} strokeWidth="1" />
-          </pattern>
-          <pattern id="diagramDots" width="24" height="24" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1" fill={isDark ? "rgba(255,255,255,0.09)" : "rgba(15,23,42,0.08)"} />
-          </pattern>
-        </defs>
-        <rect width="1000" height="700" fill="url(#diagramGrid)" />
-        <rect width="1000" height="700" fill="url(#diagramDots)" />
+      <div
+        ref={stageRef}
+        className="absolute left-0 top-0 h-full w-full origin-top-left"
+        style={{ transform: `translate(${viewport.translateX}px, ${viewport.translateY}px) scale(${viewport.scale})` }}
+      >
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <pattern id="diagramGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke={isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.06)"} strokeWidth="1" />
+            </pattern>
+            <pattern id="diagramDots" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle cx="2" cy="2" r="1" fill={isDark ? "rgba(255,255,255,0.09)" : "rgba(15,23,42,0.08)"} />
+            </pattern>
+          </defs>
+          <rect width="1000" height="700" fill="url(#diagramGrid)" />
+          <rect width="1000" height="700" fill="url(#diagramDots)" />
 
-        {diagram.wires.map((wire, index) => {
-          const fromNode = getNodeById(wire.from.nodeId);
-          const toNode = getNodeById(wire.to.nodeId);
-          const fromPinIndex = (fromNode.pins || []).indexOf(wire.from.pin);
-          const toPinIndex = (toNode.pins || []).indexOf(wire.to.pin);
-          const fromPoint = getConnectorPoint(fromNode, Math.max(fromPinIndex, 0), fromNode.id === diagram.board.id ? "board" : "right");
-          const toPoint = getConnectorPoint(toNode, Math.max(toPinIndex, 0), toNode.id === diagram.board.id ? "board" : "left");
-          const direction = fromPoint.x < toPoint.x ? 1 : -1;
-          const distance = Math.max(Math.abs(toPoint.x - fromPoint.x), 120);
-          const bend = 72 + Math.min(distance * 0.22, 120);
-          const curveLift = (index % 3 - 1) * 10;
-          const path = `M ${fromPoint.x} ${fromPoint.y} C ${fromPoint.x + direction * bend} ${fromPoint.y + curveLift}, ${toPoint.x - direction * bend} ${toPoint.y - curveLift}, ${toPoint.x} ${toPoint.y}`;
-          const labelX = (fromPoint.x + toPoint.x) / 2;
-          const labelY = (fromPoint.y + toPoint.y) / 2 - 14;
-          const wireKey = `${wire.from.nodeId}:${wire.from.pin}->${wire.to.nodeId}:${wire.to.pin}`;
-          const active = hoveredWire === wireKey;
+          {diagram.wires.map((wire, index) => {
+            const fromNode = getNodeById(wire.from.nodeId);
+            const toNode = getNodeById(wire.to.nodeId);
+            const fromPinIndex = (fromNode.pins || []).indexOf(wire.from.pin);
+            const toPinIndex = (toNode.pins || []).indexOf(wire.to.pin);
+            const fromPoint = getConnectorPoint(fromNode, Math.max(fromPinIndex, 0), fromNode.id === diagram.board.id ? "board" : "right");
+            const toPoint = getConnectorPoint(toNode, Math.max(toPinIndex, 0), toNode.id === diagram.board.id ? "board" : "left");
+            const direction = fromPoint.x < toPoint.x ? 1 : -1;
+            const distance = Math.max(Math.abs(toPoint.x - fromPoint.x), 120);
+            const bend = 72 + Math.min(distance * 0.22, 120);
+            const curveLift = (index % 3 - 1) * 10;
+            const path = `M ${fromPoint.x} ${fromPoint.y} C ${fromPoint.x + direction * bend} ${fromPoint.y + curveLift}, ${toPoint.x - direction * bend} ${toPoint.y - curveLift}, ${toPoint.x} ${toPoint.y}`;
+            const labelX = (fromPoint.x + toPoint.x) / 2;
+            const labelY = (fromPoint.y + toPoint.y) / 2 - 14;
+            const wireKey = `${wire.from.nodeId}:${wire.from.pin}->${wire.to.nodeId}:${wire.to.pin}`;
+            const active = hoveredWire === wireKey;
 
-          return (
-            <g key={`${wire.label}-${index}`}>
-              <path
-                d={path}
-                fill="none"
-                stroke={wire.color}
-                strokeWidth={active ? 5 : 3}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={active ? 1 : 0.9}
-                onPointerEnter={() => setHoveredWire(wireKey)}
-                onPointerLeave={() => setHoveredWire(null)}
-              />
-              <g transform={`translate(${labelX}, ${labelY})`}>
-                <rect x="-36" y="-11" width="72" height="22" rx="11" fill={isDark ? "rgba(15,23,42,0.92)" : "rgba(255,255,255,0.95)"} stroke={isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)"} />
-                <text x="0" y="4" textAnchor="middle" fontSize="11" fontWeight="600" fill={isDark ? "#e5e7eb" : "#0f172a"}>{wire.label}</text>
+            return (
+              <g key={`${wire.label}-${index}`}>
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={wire.color}
+                  strokeWidth={active ? 5 : 3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={active ? 1 : 0.9}
+                  onPointerEnter={() => setHoveredWire(wireKey)}
+                  onPointerLeave={() => setHoveredWire(null)}
+                />
+                <g transform={`translate(${labelX}, ${labelY})`}>
+                  <rect x="-48" y="-13" width="96" height="26" rx="13" fill={isDark ? "rgba(15,23,42,0.95)" : "rgba(255,255,255,0.97)"} stroke={isDark ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.16)"} />
+                  <text x="0" y="4" textAnchor="middle" fontSize="11" fontWeight="700" fill={isDark ? "#e5e7eb" : "#0f172a"}>{wire.label}</text>
+                </g>
               </g>
-            </g>
-          );
-        })}
-      </svg>
+            );
+          })}
+        </svg>
 
-      {renderNode(diagram.board, true)}
-      {diagram.nodes.map((node) => renderNode(node))}
+        {renderNode(diagram.board, true)}
+        {diagram.nodes.map((node) => renderNode(node))}
+      </div>
+
+      <div className={`absolute right-4 top-4 flex items-center gap-2 rounded-xl border px-2 py-2 shadow-sm ${isDark ? "border-white/10 bg-[#0b0d12]/90" : "border-black/10 bg-white/90"}`}>
+        <button onClick={() => zoomTo(viewport.scale + 0.12)} className={`rounded-lg px-3 py-1 text-xs font-semibold ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/5 text-[#0f172a] hover:bg-black/10"}`}>+</button>
+        <button onClick={() => zoomTo(viewport.scale - 0.12)} className={`rounded-lg px-3 py-1 text-xs font-semibold ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/5 text-[#0f172a] hover:bg-black/10"}`}>-</button>
+        <button onClick={() => setViewport({ scale: 1, translateX: 0, translateY: 0 })} className={`rounded-lg px-3 py-1 text-xs font-semibold ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/5 text-[#0f172a] hover:bg-black/10"}`}>Reset</button>
+        <button onClick={fitToView} className={`rounded-lg px-3 py-1 text-xs font-semibold ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/5 text-[#0f172a] hover:bg-black/10"}`}>Fit</button>
+      </div>
 
       <div className={`absolute left-4 top-4 rounded-xl border px-3 py-2 text-[11px] leading-5 shadow-sm ${isDark ? "border-white/10 bg-[#0b0d12]/90 text-[#e5e7eb]" : "border-black/10 bg-white/90 text-[#0f172a]"}`}>
         <div className="font-semibold">Real circuit layout</div>
-        <div className="text-[10px] text-[#64748b]">Premium SVG board, smooth wires, pin labels, and drag-to-rearrange cards.</div>
+        <div className="text-[10px] text-[#64748b]">Zoom, pan, and drag components. Pin labels and wire boxes stay aligned to the selected board.</div>
       </div>
 
       <div className={`absolute left-4 bottom-4 rounded-xl border px-3 py-2 text-[11px] font-semibold ${isDark ? "border-white/10 bg-[#0b0d12]/90 text-[#e5e7eb]" : "border-black/10 bg-white/90 text-[#0f172a]"}`}>
