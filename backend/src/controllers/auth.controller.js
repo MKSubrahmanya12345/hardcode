@@ -11,7 +11,9 @@ const verifyFirebaseIdToken = async (idToken) => {
   const apiKey = process.env.FIREBASE_API_KEY?.trim();
 
   if (!apiKey) {
-    throw new Error("Missing FIREBASE_API_KEY in backend/.env");
+    const err = new Error("Missing FIREBASE_API_KEY in backend/.env");
+    err.statusCode = 500;
+    throw err;
   }
 
   const response = await fetch(
@@ -27,7 +29,9 @@ const verifyFirebaseIdToken = async (idToken) => {
 
   if (!response.ok || !Array.isArray(payload?.users) || payload.users.length === 0) {
     const message = payload?.error?.message || "Invalid Firebase token";
-    throw new Error(message);
+    const err = new Error(message);
+    err.statusCode = 401;
+    throw err;
   }
 
   return payload.users[0];
@@ -44,9 +48,10 @@ export const firebaseAuth = async (req, res) => {
     const firebaseUser = await verifyFirebaseIdToken(idToken.trim());
     const firebaseUid = String(firebaseUser.localId || "").trim();
     const email = String(firebaseUser.email || "").trim().toLowerCase();
-    const resolvedFullName = String(fullName || firebaseUser.displayName || "").trim();
+    const fallbackName = email.includes("@") ? email.split("@")[0] : "User";
+    const resolvedFullName = String(fullName || firebaseUser.displayName || fallbackName).trim();
 
-    if (!firebaseUid || !email || !resolvedFullName) {
+    if (!firebaseUid || !email) {
       return res.status(400).json({ message: "Incomplete Firebase user profile" });
     }
 
@@ -77,6 +82,15 @@ export const firebaseAuth = async (req, res) => {
       profilePic: user.profilePic,
     });
   } catch (error) {
+    if (error.statusCode === 500) {
+      console.log("Error in firebaseAuth controller", error.message);
+      return res.status(500).json({ message: error.message });
+    }
+
+    if (error.statusCode === 401) {
+      return res.status(401).json({ message: "Invalid Firebase token" });
+    }
+
     if (error.message?.includes("INVALID_ID_TOKEN") || error.message?.includes("TOKEN_EXPIRED")) {
       return res.status(401).json({ message: "Invalid Firebase token" });
     }

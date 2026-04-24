@@ -11,21 +11,86 @@ const stripThinking = (value = "") => {
     .trim();
 };
 
+const normalizeJsonLikeText = (value = "") => {
+  return String(value || "")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/\u00A0/g, " ")
+    .replace(/,\s*([}\]])/g, "$1")
+    .trim();
+};
+
+const extractFirstBalancedJson = (value = "") => {
+  const text = String(value || "");
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (start === -1) {
+      if (ch === "{" || ch === "[") {
+        start = i;
+        depth = 1;
+      }
+      continue;
+    }
+
+    if (ch === "{" || ch === "[") depth += 1;
+    if (ch === "}" || ch === "]") depth -= 1;
+
+    if (start !== -1 && depth === 0) {
+      return text.slice(start, i + 1);
+    }
+  }
+
+  return "";
+};
+
 const safeParseJson = (text = "") => {
   const cleaned = stripThinking(text);
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const jsonBlock = cleaned.match(/```json\s*([\s\S]*?)\s*```/i);
-    if (jsonBlock?.[1]) {
-      return JSON.parse(jsonBlock[1]);
-    }
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match?.[0]) {
-      return JSON.parse(match[0]);
-    }
-    throw new Error("AI response parsing failed");
+  const candidates = [];
+
+  candidates.push(cleaned);
+
+  const jsonBlock = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (jsonBlock?.[1]) {
+    candidates.push(jsonBlock[1]);
   }
+
+  const balanced = extractFirstBalancedJson(cleaned);
+  if (balanced) {
+    candidates.push(balanced);
+  }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeJsonLikeText(candidate);
+    if (!normalized) continue;
+
+    try {
+      return JSON.parse(normalized);
+    } catch {}
+  }
+
+  throw new Error("AI response parsing failed");
 };
 
 const callAI = async (prompt) => {
