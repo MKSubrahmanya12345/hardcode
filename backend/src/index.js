@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import { connectDB } from "./lib/db.js";
 import { checkWokwiCliReady } from "./lib/wokwi.js";
 import cookieParser from "cookie-parser";
@@ -12,6 +14,10 @@ import authRoutes from "./routes/auth.route.js";
 import componentsRoutes from "./routes/components.route.js";
 import designRoutes from "./routes/design.route.js";
 import wokwiRoutes from "./routes/wokwi.route.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 
 
