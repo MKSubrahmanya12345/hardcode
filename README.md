@@ -76,3 +76,17 @@ The goal of this branch is to preserve all local feature work while staying comp
 - Synced with latest `mkhardcode/main` and merged into local mixed branch.
 - UI was preserved intentionally (workspace/editor layout and interactions remain on local version).
 - Branch publish target: `mkhardcode/alden`.
+
+## Merge rule for UI preservation
+
+To avoid old UI code from `main` overriding your local UI during future syncs, use:
+
+```powershell
+./scripts/merge-main-keep-local-ui.ps1
+```
+
+This script does four things in sequence:
+1. Fetches `mkhardcode/main`
+2. Merges it into your current branch
+3. Restores local UI files from pre-merge commit
+4. Pushes result to `mkhardcode/alden`
