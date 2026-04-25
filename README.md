@@ -1,4 +1,4 @@
-# Athernex BMS
+# NovaAi
 
 Arduino + Wokwi hardware development workspace with AI-assisted ideation, component planning, circuit design, and firmware iteration.
 
